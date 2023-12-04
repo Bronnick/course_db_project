@@ -2,14 +2,18 @@ import neo4j.exceptions
 import psycopg2
 from neo4j import GraphDatabase
 
+from classes.Person import Manager
+
 CREATE_SALARY_TABLE_QUERY_SQL = "CREATE TABLE IF NOT EXISTS " \
                                 "workers_salary_info(worker_id INTEGER REFERENCES workers_system_info ," \
                                 "name TEXT, " \
-                                "salary FLOAT);"
+                                "salary FLOAT," \
+                                "role TEXT CHECK (role = 'manager' or role = 'admin' or role = 'employee')" \
+                                ");"
 
 CREATE_SYSTEM_TABLE_QUERY_SQL = "CREATE TABLE IF NOT EXISTS " \
-                                "workers_system_info(worker_id SERIAL PRIMARY KEY, login TEXT UNIQUE, password TEXT," \
-                                "role TEXT CHECK (role = 'manager' or role = 'admin' or role = 'employee'));"
+                                "workers_system_info(worker_id SERIAL PRIMARY KEY, login TEXT UNIQUE, password TEXT" \
+                                ");"
 
 CREATE_ADMIN_TABLE_SQL = "CREATE TABLE IF NOT EXISTS admin_table (admin_id SERIAL PRIMARY KEY," \
                          "login TEXT UNIQUE, password TEXT, access_level INTEGER);"
@@ -27,18 +31,34 @@ class AppDatabase:
         employees = self.sql_database.get_all()
         last_id = employees[-1][0]
         with self.graph_database.driver.session() as session:
-            session.execute_write(GraphDB.add_employee, last_id)
+            session.execute_write(GraphDB.add_employee, last_id, employee.department)
+
+    def get_all_employees(self):
+        data = []
+        self.sql_database.cursor.execute(
+            f'SELECT * FROM workers_salary_info')
+        sql_data = self.sql_database.cursor.fetchall()
+        for item in sql_data:
+            with self.graph_database.driver.session() as session:
+                graph_data = session.execute_write(GraphDB.find_department, item[0])
+                current = [item, graph_data]
+                data.append(current)
+        return data
 
     def authenticate_employee(self, login, password, is_admin):
         try:
             if is_admin == 0:
-                print("workers salary exec")
                 self.sql_database.cursor.execute(
                     f'SELECT * FROM workers_salary_info WHERE worker_id = {self.sql_database.find_employee(login, password)[0][0]}')
+                sql_data = self.sql_database.cursor.fetchall()
+                with self.graph_database.driver.session() as session:
+                    graph_data = session.execute_write(GraphDB.find_department, sql_data[0][0])
+                return sql_data, graph_data[0].data()["name"]
             else:
                 self.sql_database.cursor.execute(
                     f'SELECT * FROM admin_table WHERE admin_id = {self.sql_database.find_admin(login, password)[0][0]}')
-            return self.sql_database.cursor.fetchall()
+                sql_data = self.sql_database.cursor.fetchall()
+                return sql_data
         except IndexError:
             return -1
 
@@ -58,8 +78,13 @@ class SQLDatabase:
         self.cursor.execute(f'INSERT INTO workers_system_info (login, password) ' +
                             f'VALUES (\'{employee.login}\', {employee.password});')
         last_id = self.get_all()[-1][0]
-        self.cursor.execute(f'INSERT INTO workers_salary_info (worker_id, name, salary) ' +
-                            f'VALUES (\'{last_id}\', \'{employee.name}\', {employee.salary});')
+        role = ''
+        if isinstance(employee, Manager):
+            role = 'manager'
+        else:
+            role = 'employee'
+        self.cursor.execute(f'INSERT INTO workers_salary_info (worker_id, name, salary, role) ' +
+                            f'VALUES (\'{last_id}\', \'{employee.name}\', {employee.salary}, \'{role}\');')
         self.conn.commit()
 
     def find_employee(self, login, password):
@@ -93,15 +118,27 @@ class GraphDB:
                     print("node already exists")
 
     @staticmethod
-    def add_employee(tx, employee_id):
+    def add_employee(tx, employee_id, department_name):
         tx.run("CREATE (e:Employee) "
                "SET e.employee_id = $id ", id=employee_id)
+        tx.run("MATCH(e:Employee{employee_id: $id}), "
+               "(d:Department{name:$name}) "
+               "CREATE (e)-[r:works_in]->(d)", id=employee_id, name=department_name)
+
+    def get_employee_department(self):
+        pass
 
     @staticmethod
     def _create_departments(tx):
         for name in department_names:
             tx.run("CREATE (d:Department) "
                    "SET d.name = $message", message=name)
+
+    @staticmethod
+    def find_department(tx, employee_id):
+        result = tx.run("MATCH path = (e:Employee{employee_id: $id})-[r:works_in]-(d:Department) "
+                        "RETURN d.name AS name", id=employee_id)
+        return result.fetch(1)
 
     @staticmethod
     def _get_all(tx):

@@ -26,13 +26,23 @@ class Person:
 
 
 class Employee(Person):
-    def __init__(self, worker_id, login, password, name, salary):
+    def __init__(self, worker_id, login, password, name, salary, department):
         super().__init__(worker_id, login, password, name)
         self.__salary = salary
+        self.__department = department
 
     @property
     def salary(self):
         return self.__salary
+
+    @property
+    def department(self):
+        return self.__department
+
+
+class Manager(Employee):
+    def __init__(self, worker_id, login, password, name, salary, department):
+        super().__init__(worker_id, login, password, name, salary, department)
 
 
 class Admin(Person):
