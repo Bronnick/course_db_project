@@ -1,14 +1,22 @@
+import string
+
 import neo4j.exceptions
 import psycopg2
 from neo4j import GraphDatabase
 
 from classes.Person import Manager
+from classes.Absence import SickLeave
 
 CREATE_SALARY_TABLE_QUERY_SQL = "CREATE TABLE IF NOT EXISTS " \
                                 "workers_salary_info(worker_id INTEGER REFERENCES workers_system_info ," \
                                 "name TEXT, " \
-                                "salary FLOAT," \
-                                "role TEXT CHECK (role = 'manager' or role = 'admin' or role = 'employee')" \
+                                "salary FLOAT, " \
+                                "role TEXT CHECK (role = 'manager' or role = 'admin' or role = 'employee'), " \
+                                "birth_year INTEGER, " \
+                                "start_date DATE DEFAULT CURRENT_DATE, " \
+                                "family_state TEXT CHECK (family_state = 'married' or family_state = 'not married'), " \
+                                "gender TEXT CHECK (gender = 'male' or gender = 'female'), " \
+                                "kids_amount INTEGER " \
                                 ");"
 
 CREATE_SYSTEM_TABLE_QUERY_SQL = "CREATE TABLE IF NOT EXISTS " \
@@ -32,6 +40,10 @@ class AppDatabase:
         last_id = employees[-1][0]
         with self.graph_database.driver.session() as session:
             session.execute_write(GraphDB.add_employee, last_id, employee.department)
+
+    def add_sick_leave(self, _id, sick_leave):
+        with self.graph_database.driver.session() as session:
+            session.execute_write(GraphDB.add_sick_leave, _id, sick_leave)
 
     def get_all_employees(self):
         data = []
@@ -62,6 +74,47 @@ class AppDatabase:
         except IndexError:
             return -1
 
+    def find_employee_by_login(self, login):
+        self.sql_database.cursor.execute(
+            f"SELECT worker_id FROM workers_system_info WHERE login = \'{login}\'; ")
+        return self.sql_database.cursor.fetchall()
+
+    def get_sick_leaves(self, employee_id):
+        with self.graph_database.driver.session() as session:
+            graph_data = session.execute_write(GraphDB.get_sick_leaves_by_id, employee_id)
+            return graph_data
+
+    def get_pensioners(self):
+        self.sql_database.cursor.execute("SELECT worker_id, name, salary, "
+                                         "(DATE_PART('year', CURRENT_DATE) - DATE_PART('year', start_date)) as experience "
+                                         "FROM workers_salary_info WHERE (EXTRACT(YEAR FROM CURRENT_DATE) - birth_year) > 60;")
+        return self.sql_database.cursor.fetchall()
+
+    def get_workers_salary_less_than(self, salary):
+        self.sql_database.cursor.execute(f"SELECT worker_id, name, salary FROM workers_salary_info "
+                                         f"WHERE salary < {salary};")
+        return self.sql_database.cursor.fetchall()
+
+    def get_employee_department(self, employee_id):
+        with self.graph_database.driver.session() as session:
+            graph_data = session.execute_write(GraphDB.find_department, employee_id)
+            return graph_data[0].data()["name"]
+
+    def get_average_age(self):
+        self.sql_database.cursor.execute("SELECT AVG(DATE_PART('year', CURRENT_DATE) - birth_year) "
+                                         "FROM workers_salary_info;")
+        return self.sql_database.cursor.fetchall()
+
+    def get_employees_by_department(self, department_name: str):
+        with self.graph_database.driver.session() as session:
+            graph_data = session.execute_write(GraphDB.get_employees_by_department, department_name)
+            return graph_data
+
+    def get_employee_age_by_id(self, _id):
+        self.sql_database.cursor.execute("SELECT DATE_PART('year', CURRENT_DATE) - birth_year "
+                                         f"FROM workers_salary_info WHERE worker_id = {_id};")
+        return self.sql_database.cursor.fetchall()
+
 
 class SQLDatabase:
     def __init__(self):
@@ -83,8 +136,10 @@ class SQLDatabase:
             role = 'manager'
         else:
             role = 'employee'
-        self.cursor.execute(f'INSERT INTO workers_salary_info (worker_id, name, salary, role) ' +
-                            f'VALUES (\'{last_id}\', \'{employee.name}\', {employee.salary}, \'{role}\');')
+        self.cursor.execute(
+            f'INSERT INTO workers_salary_info (worker_id, name, salary, role, birth_year, family_state, gender, kids_amount) ' +
+            f'VALUES (\'{last_id}\', \'{employee.name}\', {employee.salary}, \'{role}\', {employee.birth_year},'
+            f' \'{employee.family_state}\', \'{employee.gender}\', {employee.kids_amount});')
         self.conn.commit()
 
     def find_employee(self, login, password):
@@ -125,6 +180,18 @@ class GraphDB:
                "(d:Department{name:$name}) "
                "CREATE (e)-[r:works_in]->(d)", id=employee_id, name=department_name)
 
+    @staticmethod
+    def add_sick_leave(tx, employee_id, sick_leave):
+        tx.run("CREATE (s:SickLeave) "
+               "SET s.start_date = $start_date "
+               "SET s.duration = $duration "
+               "SET s.illness_type = $illness_type ", start_date=sick_leave.start_date,
+               duration=sick_leave.duration, illness_type=sick_leave.illness_type)
+        tx.run("MATCH(e:Employee{employee_id: $id}), "
+               "(s:SickLeave{start_date:$date, duration:$duration, illness_type:$illness_type}) "
+               "CREATE (e)-[r:has_illness]->(s)", id=employee_id, date=sick_leave.start_date,
+               duration=sick_leave.duration, illness_type=sick_leave.illness_type)
+
     def get_employee_department(self):
         pass
 
@@ -139,6 +206,18 @@ class GraphDB:
         result = tx.run("MATCH path = (e:Employee{employee_id: $id})-[r:works_in]-(d:Department) "
                         "RETURN d.name AS name", id=employee_id)
         return result.fetch(1)
+
+    @staticmethod
+    def get_sick_leaves_by_id(tx, employee_id):
+        result = tx.run("MATCH path = (e:Employee{employee_id: $id})-[r:has_illness]-(s:SickLeave) "
+                        "RETURN s", id=employee_id)
+        return result.fetch(100)
+
+    @staticmethod
+    def get_employees_by_department(tx, department_name):
+        result = tx.run('MATCH paths = (e:Employee)-[r:works_in]-(d:Department{name: $department_name}) '
+                        "RETURN e.employee_id AS id", department_name=department_name)
+        return result.fetch(100)
 
     @staticmethod
     def _get_all(tx):

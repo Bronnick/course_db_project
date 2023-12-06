@@ -1,7 +1,9 @@
+from datetime import datetime
 from tkinter import Toplevel, ttk, IntVar
-from tkinter.constants import SE, BOTH, END
+from tkinter.constants import SE, BOTH, END, NO
 from tkinter.tix import Tk
 
+from classes.Absence import SickLeave
 from classes.Person import Person, Employee, Admin, Manager
 from database_module import AppDatabase
 
@@ -18,6 +20,15 @@ NAME_ENTRY_EMPLOYEE_ADD_WIDGET = 'name_employee_add'
 SALARY_ENTRY_EMPLOYEE_ADD_WIDGET = 'salary_employee_add'
 DEPARTMENT_ENTRY_EMPLOYEE_ADD_WIDGET = 'department_employee_add'
 ROLE_ENTRY_EMPLOYEE_ADD_WIDGET = 'role_employee_add'
+BIRTH_YEAR_ENTRY_EMPLOYEE_ADD_WIDGET = 'birth_year_employee_add'
+FAMILY_STATE_ENTRY_EMPLOYEE_ADD_WIDGET = 'family_state_employee_add'
+GENDER_ENTRY_EMPLOYEE_ADD_WIDGET = 'gender_employee_add'
+KIDS_AMOUNT_ENTRY_EMPLOYEE_ADD_WIDGET = 'kids_amount_employee_add'
+
+START_ILLNESS_DATE_WIDGET = "start_illness_date"
+DURATION_ILLNESS_WIDGET = "duration_illness"
+ILLNESS_TYPE_WIDGET = "type_illness"
+LOGIN_ENTRY_WIDGET_ILLNESS = "login_illness"
 
 
 class AppWindow(Tk):
@@ -103,14 +114,55 @@ class AppWindow(Tk):
         role = ttk.Label(text=role_text)
         role.place(x=100, y=175)
 
+        birth_year_label = ttk.Label(text="Birth year: ")
+        birth_year_label.place(x=25, y=200)
+        birth_year_entry = ttk.Label(text=person.birth_year)
+        birth_year_entry.place(x=100, y=200)
+
+        family_state_label = ttk.Label(text="Family state: ")
+        family_state_label.place(x=25, y=225)
+        family_state_entry = ttk.Label(text=person.family_state)
+        family_state_entry.place(x=100, y=225)
+
+        gender_label = ttk.Label(text="Gender: ")
+        gender_label.place(x=25, y=250)
+        gender_entry = ttk.Label(text=person.gender)
+        gender_entry.place(x=100, y=250)
+
+        kids_amount_label = ttk.Label(text="Kids amount: ")
+        kids_amount_label.place(x=25, y=275)
+        kids_amount_entry = ttk.Label(text=person.kids_amount)
+        kids_amount_entry.place(x=100, y=275)
+
+        start_date_label = ttk.Label(text="Start date: ")
+        start_date_label.place(x=25, y=300)
+        start_date_entry = ttk.Label(text=person.start_date)
+        start_date_entry.place(x=100, y=300)
+
+        button_view_sick_leaves = ttk.Button(text="View sick leaves",
+                                             command=lambda: self.create_sick_leaves_window(person))
+        button_view_sick_leaves.place(x=70, y=350)
+
         button_log_out = ttk.Button(text="Log out", command=self.create_auth_window)
         button_log_out.place(relx=0.8, rely=0.8)
 
     def create_manager_window(self, person):
         self.create_user_data_window(person)
 
-        button_view_employees = ttk.Button(text="View employees", command=self.view_salary_increase_requests)
-        button_view_employees.place(x=75, y=200)
+        id_label = ttk.Label(text="Reports: ")
+        id_label.place(x=300, y=25)
+
+        button_view_pensioners = ttk.Button(text="View pensioners",
+                                            command=lambda: self.create_pensioners_window(person))
+        button_view_pensioners.place(x=300, y=50)
+
+        button_view_salary_less_than = ttk.Button(text="View salaries less than N",
+                                                  command=lambda: self.create_salary_less_than_window(100000, person))
+        button_view_salary_less_than.place(x=300, y=75)
+
+        button_view_average_age = ttk.Button(text="View average age",
+                                             command=lambda: self.create_average_age_window(person.department, person))
+        button_view_average_age.place(x=300, y=100)
 
     def create_admin_window(self, admin):
         self.clear_widgets()
@@ -124,8 +176,172 @@ class AppWindow(Tk):
                                          command=lambda: self.create_employee_add_window(admin))
         add_employee_button.place(x=25, y=75)
 
+        add_sick_leave_button = ttk.Button(self, text="Add sick leave",
+                                           command=lambda: self.create_sick_leave_add_window(admin))
+        add_sick_leave_button.place(x=25, y=120)
+
         back_button = ttk.Button(self, text="Back", command=self.create_auth_window)
         back_button.place(relx=0.8, rely=0.8)
+
+    def create_sick_leaves_window(self, person):
+        self.clear_widgets()
+        sick_leaves = app_db.get_sick_leaves(person.id)
+
+        columns = ("start_date", "duration", "illness_type", "salary")
+        table = ttk.Treeview(columns=columns, show="headings")
+        table.pack(fill=BOTH, expand=1)
+
+        table.heading("start_date", text="start_date")
+        table.heading("duration", text='duration')
+        table.heading("illness_type", text='illness_type')
+        table.heading("salary", text='salary')
+
+        table.column("#1", stretch=NO, width=100)
+        table.column("#2", stretch=NO, width=100)
+        table.column("#3", stretch=NO, width=100)
+        table.column("#4", stretch=NO, width=100)
+
+        data = []
+        current = 0
+        for item in sick_leaves:
+            data.append([])
+            data[current].append(item.data()["s"]["start_date"])
+            data[current].append(item.data()["s"]["duration"])
+            data[current].append(item.data()["s"]["illness_type"])
+
+            date1 = person.start_date
+            date2 = item.data()["s"]["start_date"]
+            date_diff = (datetime.strptime(date2, '%Y-%m-%d') - datetime.strptime(date1.strftime('%Y-%m-%d'),
+                                                                                  '%Y-%m-%d')).days
+
+            print(date_diff)
+            salary = person.salary
+            if date_diff < 730:
+                salary /= 2
+            elif 730 <= date_diff <= 1460:
+                salary *= 0.8
+            data[current].append(salary)
+
+            current += 1
+
+        for item in data:
+            table.insert("", END, values=item)
+
+        if isinstance(person, Manager):
+            create = self.create_manager_window
+        else:
+            create = self.create_user_data_window
+        button_back = ttk.Button(text="Back", command=lambda: create(person))
+        button_back.place(relx=0.8, rely=0.8)
+
+    def create_pensioners_window(self, person):
+        self.clear_widgets()
+
+        columns = ("worker_id", "name", "salary", "experience")
+        table = ttk.Treeview(columns=columns, show="headings")
+        table.pack(fill=BOTH, expand=1)
+
+        table.heading("worker_id", text="worker_id")
+        table.heading("name", text='name')
+        table.heading("salary", text='salary')
+        table.heading("experience", text='experience')
+
+        table.column("#1", stretch=NO, width=100)
+        table.column("#2", stretch=NO, width=100)
+        table.column("#3", stretch=NO, width=100)
+        table.column("#4", stretch=NO, width=100)
+
+        data = app_db.get_pensioners()
+
+        for item in data:
+            table.insert("", END, values=item)
+
+        button_back = ttk.Button(text="Back", command=lambda: self.create_manager_window(person))
+        button_back.place(relx=0.8, rely=0.8)
+
+    def create_salary_less_than_window(self, salary, person):
+        self.clear_widgets()
+        data = app_db.get_workers_salary_less_than(salary)
+
+        columns = ("worker_id", "name", "salary", "department")
+        table = ttk.Treeview(columns=columns, show="headings")
+        table.pack(fill=BOTH, expand=1)
+
+        table.heading("worker_id", text="worker_id")
+        table.heading("name", text='name')
+        table.heading("salary", text='salary')
+        table.heading("department", text='department')
+
+        table.column("#1", stretch=NO, width=100)
+        table.column("#2", stretch=NO, width=100)
+        table.column("#3", stretch=NO, width=100)
+        table.column("#4", stretch=NO, width=100)
+
+        for item in data:
+            department = app_db.get_employee_department(item[0])
+            item += (department,)
+            table.insert("", END, values=item)
+
+        salary_entry = ttk.Entry(self)
+        salary_entry.place(x=50, y=200)
+
+        button_refresh = ttk.Button(text="Refresh",
+                                    command=lambda: self.create_salary_less_than_window(salary_entry.get(),
+                                                                                        person))
+        button_refresh.place(x=50, y=225)
+
+        button_back = ttk.Button(text="Back", command=lambda: self.create_manager_window(person))
+        button_back.place(relx=0.8, rely=0.8)
+
+    def create_average_age_window(self, department_name, person):
+        self.clear_widgets()
+
+        columns = ("average", "department")
+        table = ttk.Treeview(columns=columns, show="headings")
+        table.pack(fill=BOTH, expand=1)
+
+        table.heading("average", text="average")
+        table.heading("department", text="department")
+
+        table.column("#1", stretch=NO, width=100)
+
+        graph_data = app_db.get_employees_by_department(department_name)
+        ages = []
+
+        for item in graph_data:
+            print(item.data()["id"])
+            age = app_db.get_employee_age_by_id(item.data()['id'])
+            ages.append(age)
+
+        print(ages)
+        sum = 0
+        for item in ages:
+            sum += item[0][0]
+
+        average_age = sum / len(ages)
+
+        table_value = [average_age, department_name]
+        data = app_db.get_average_age()
+
+        table.column("#1", stretch=NO, width=100)
+        table.column("#2", stretch=NO, width=100)
+
+        for item in data:
+            print(item)
+            table.insert("", END, values=round(item[0], 2))
+
+        table.insert("", END, values=table_value)
+
+        department_entry = ttk.Entry(self)
+        department_entry.place(x=50, y=200)
+
+        button_refresh = ttk.Button(text="Refresh",
+                                    command=lambda: self.create_average_age_window(department_entry.get(),
+                                                                                   person))
+        button_refresh.place(x=50, y=225)
+
+        button_back = ttk.Button(text="Back", command=lambda: self.create_manager_window(person))
+        button_back.place(relx=0.8, rely=0.8)
 
     def create_employee_add_window(self, admin):
         self.clear_widgets()
@@ -154,7 +370,7 @@ class AppWindow(Tk):
         salary_entry.place(x=100, y=125)
         self.widgets[SALARY_ENTRY_EMPLOYEE_ADD_WIDGET] = salary_entry
 
-        department_label = ttk.Label(text="Salary: ")
+        department_label = ttk.Label(text="Department: ")
         department_label.place(x=25, y=150)
         department_entry = ttk.Entry(self)
         department_entry.place(x=100, y=150)
@@ -166,9 +382,68 @@ class AppWindow(Tk):
         role_entry.place(x=100, y=175)
         self.widgets[ROLE_ENTRY_EMPLOYEE_ADD_WIDGET] = role_entry
 
+        birth_year_label = ttk.Label(text="Birth year: ")
+        birth_year_label.place(x=25, y=200)
+        birth_year_entry = ttk.Entry(self)
+        birth_year_entry.place(x=100, y=200)
+        self.widgets[BIRTH_YEAR_ENTRY_EMPLOYEE_ADD_WIDGET] = birth_year_entry
+
+        family_state_label = ttk.Label(text="Family state: ")
+        family_state_label.place(x=25, y=225)
+        family_state_entry = ttk.Entry(self)
+        family_state_entry.place(x=100, y=225)
+        self.widgets[FAMILY_STATE_ENTRY_EMPLOYEE_ADD_WIDGET] = family_state_entry
+
+        gender_label = ttk.Label(text="Gender: ")
+        gender_label.place(x=25, y=250)
+        gender_entry = ttk.Entry(self)
+        gender_entry.place(x=100, y=250)
+        self.widgets[GENDER_ENTRY_EMPLOYEE_ADD_WIDGET] = gender_entry
+
+        kids_amount_label = ttk.Label(text="Kids amount: ")
+        kids_amount_label.place(x=25, y=275)
+        kids_amount_entry = ttk.Entry(self)
+        kids_amount_entry.place(x=100, y=275)
+        self.widgets[KIDS_AMOUNT_ENTRY_EMPLOYEE_ADD_WIDGET] = kids_amount_entry
+
         button_add_employee = ttk.Button(self, text='Add employee',
                                          command=lambda: self.add_employee_button_click(admin))
-        button_add_employee.place(x=100, y=200)
+        button_add_employee.place(x=100, y=300)
+
+        back_button = ttk.Button(self, text="Back", command=lambda: self.create_admin_window(admin))
+        back_button.place(relx=0.8, rely=0.8)
+
+    def create_sick_leave_add_window(self, admin):
+        self.clear_widgets()
+
+        start_date_label = ttk.Label(self, text="Start date: ")
+        start_date_label.place(x=25, y=25)
+        start_date_entry = ttk.Entry(self)
+        start_date_entry.place(x=100, y=25)
+        self.widgets[START_ILLNESS_DATE_WIDGET] = start_date_entry
+
+        duration_label = ttk.Label(self, text="Duration: ")
+        duration_label.place(x=25, y=50)
+        duration_entry = ttk.Entry(self)
+        duration_entry.place(x=100, y=50)
+        self.widgets[DURATION_ILLNESS_WIDGET] = duration_entry
+
+        illness_type_label = ttk.Label(self, text="Illness type: ")
+        illness_type_label.place(x=25, y=75)
+        illness_type_entry = ttk.Entry(self)
+        illness_type_entry.place(x=100, y=75)
+        self.widgets[ILLNESS_TYPE_WIDGET] = illness_type_entry
+
+        login_label = ttk.Label(self, text="Login: ")
+        login_label.place(x=25, y=100)
+        login_entry = ttk.Entry(self)
+        login_entry.place(x=100, y=100)
+        self.widgets[LOGIN_ENTRY_WIDGET_ILLNESS] = login_entry
+
+        button_add_sick_leave = ttk.Button(self, text="Add sick leave",
+                                           command=lambda: self.add_sick_leave_button_click(
+                                               admin, self.widgets[LOGIN_ENTRY_WIDGET_ILLNESS].get()))
+        button_add_sick_leave.place(x=75, y=125)
 
         back_button = ttk.Button(self, text="Back", command=lambda: self.create_admin_window(admin))
         back_button.place(relx=0.8, rely=0.8)
@@ -198,9 +473,6 @@ class AppWindow(Tk):
     #     for person in people:
     #         table.insert("", END, values=person)
 
-    def view_salary_increase_requests(self):
-        pass
-
     def auth_button_click(self):
         if self.admin_var.get() == 0:
             auth_result = app_db.authenticate_employee(self.widgets[LOGIN_ENTRY_WIDGET].get(),
@@ -214,12 +486,14 @@ class AppWindow(Tk):
             if auth_result[0][0][3] == 'employee':
                 person = Employee(auth_result[0][0][0], self.widgets[LOGIN_ENTRY_WIDGET].get(),
                                   self.widgets[PASSWORD_ENTRY_WIDGET].get(), auth_result[0][0][1], auth_result[0][0][2],
-                                  auth_result[1])
+                                  auth_result[1], auth_result[0][0][4], auth_result[0][0][5], auth_result[0][0][6],
+                                  auth_result[0][0][7], auth_result[0][0][8])
                 self.create_user_data_window(person)
             else:
                 person = Manager(auth_result[0][0][0], self.widgets[LOGIN_ENTRY_WIDGET].get(),
                                  self.widgets[PASSWORD_ENTRY_WIDGET].get(), auth_result[0][0][1], auth_result[0][0][2],
-                                 auth_result[1])
+                                 auth_result[1], auth_result[0][0][4], auth_result[0][0][5], auth_result[0][0][6],
+                                 auth_result[0][0][7], auth_result[0][0][8])
                 self.create_manager_window(person)
         else:
             auth_result = app_db.authenticate_employee(self.widgets[LOGIN_ENTRY_WIDGET].get(),
@@ -234,26 +508,46 @@ class AppWindow(Tk):
             self.create_admin_window(admin)
 
     def add_employee_button_click(self, admin):
-        employee = None
         if self.widgets[ROLE_ENTRY_EMPLOYEE_ADD_WIDGET].get() == 'employee':
             employee = Employee(0, self.widgets[LOGIN_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
                                 self.widgets[PASSWORD_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
                                 self.widgets[NAME_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
                                 self.widgets[SALARY_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
-                                self.widgets[DEPARTMENT_ENTRY_EMPLOYEE_ADD_WIDGET].get())
+                                self.widgets[DEPARTMENT_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
+                                self.widgets[BIRTH_YEAR_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
+                                "",
+                                self.widgets[FAMILY_STATE_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
+                                self.widgets[GENDER_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
+                                self.widgets[KIDS_AMOUNT_ENTRY_EMPLOYEE_ADD_WIDGET].get())
         else:
             employee = Manager(0, self.widgets[LOGIN_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
                                self.widgets[PASSWORD_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
                                self.widgets[NAME_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
                                self.widgets[SALARY_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
-                               self.widgets[DEPARTMENT_ENTRY_EMPLOYEE_ADD_WIDGET].get())
+                               self.widgets[DEPARTMENT_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
+                               self.widgets[BIRTH_YEAR_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
+                               "",
+                               self.widgets[FAMILY_STATE_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
+                               self.widgets[GENDER_ENTRY_EMPLOYEE_ADD_WIDGET].get(),
+                               self.widgets[KIDS_AMOUNT_ENTRY_EMPLOYEE_ADD_WIDGET].get())
         app_db.add_employee(employee)
+        self.create_admin_window(admin)
+
+    def add_sick_leave_button_click(self, admin, login):
+        sick_leave = SickLeave(self.widgets[START_ILLNESS_DATE_WIDGET].get(),
+                               self.widgets[DURATION_ILLNESS_WIDGET].get(),
+                               self.widgets[ILLNESS_TYPE_WIDGET].get())
+        result = app_db.find_employee_by_login(login)
+        app_db.add_sick_leave(result[0][0], sick_leave)
         self.create_admin_window(admin)
 
     def clear_widgets(self):
         widget_list = self.all_children()
         for item in widget_list:
-            item.place_forget()
+            if isinstance(item, ttk.Treeview):
+                item.pack_forget()
+            else:
+                item.place_forget()
 
     def all_children(self):
         _list = self.winfo_children()

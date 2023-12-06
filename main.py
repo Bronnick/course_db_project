@@ -10,8 +10,11 @@ import psycopg2
 
 from classes.Person import *
 from database_module import SQLDatabase, GraphDB, AppDatabase
+from datetime import datetime
+
 from ui.AppWindow import AppWindow
 
+# print((datetime.strptime('2022.02.12', '%Y.%m.%d') - datetime.strptime('2020.03.23', '%Y.%m.%d')))
 AppWindow().mainloop()
 
 # sql_database.add_employee(person)
