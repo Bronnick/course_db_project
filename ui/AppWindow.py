@@ -30,6 +30,9 @@ DURATION_ILLNESS_WIDGET = "duration_illness"
 ILLNESS_TYPE_WIDGET = "type_illness"
 LOGIN_ENTRY_WIDGET_ILLNESS = "login_illness"
 
+AVERAGE_SALARY_MALE_LABEL = "average_salary_men"
+AVERAGE_SALARY_FEMALE_LABEL = "average_salary_women"
+
 
 class AppWindow(Tk):
     def __init__(self):
@@ -420,15 +423,19 @@ class AppWindow(Tk):
     def create_average_salary_window(self, person):
         self.clear_widgets()
 
+        male_label = ttk.Label(text="Men average salary: ")
+        male_label.pack()
+        self.widgets[AVERAGE_SALARY_MALE_LABEL] = male_label
+
         columns = ("department", "average")
-        table = ttk.Treeview(columns=columns, show="headings")
-        table.pack(fill=BOTH, expand=1)
+        male_table = ttk.Treeview(columns=columns, show="headings")
+        male_table.pack(fill=BOTH, expand=1)
 
-        table.heading("department", text="department")
-        table.heading("average", text="average")
+        male_table.heading("department", text="department")
+        male_table.heading("average", text="average")
 
-        table.column("#1", stretch=NO, width=100)
-        table.column("#2", stretch=NO, width=100)
+        male_table.column("#1", stretch=NO, width=100)
+        male_table.column("#2", stretch=NO, width=100)
 
         departments = app_db.get_all_departments()
 
@@ -439,19 +446,62 @@ class AppWindow(Tk):
             average_exp = 0
             for i in range(len(graph_data)):
                 try:
-                    sql_data = app_db.get_worker_gender_salary_by_department(int(graph_data[i].data()['id']))
+                    sql_data = app_db.get_worker_gender_salary_by_department(int(graph_data[i].data()['id']), 'male')
                     print("sql_data: ", sql_data)
                     average_exp += sql_data[0][0]
                 except TypeError:
                     print('error')
+                    continue
+                except IndexError:
                     continue
             general_data.append((department.data()['name'], round(average_exp / len(graph_data), 2)))
             print()
 
         print(general_data)
         # data = app_db.get_worker_experience_by_department()
+        average_male_salary_by_company = app_db.get_average_salary('female')
+        male_table.insert("", END, values=('company', average_male_salary_by_company[0][0]))
+
         for item in general_data:
-            table.insert("", END, values=item)
+            male_table.insert("", END, values=item)
+
+        female_label = ttk.Label(text="Women average salary: ")
+        female_label.pack()
+        self.widgets[AVERAGE_SALARY_FEMALE_LABEL] = female_label
+
+        columns = ("department", "average")
+        female_table = ttk.Treeview(columns=columns, show="headings")
+        female_table.pack(fill=BOTH, expand=1)
+
+        female_table.heading("department", text="department")
+        female_table.heading("average", text="average")
+
+        female_table.column("#1", stretch=NO, width=100)
+        female_table.column("#2", stretch=NO, width=100)
+
+        general_data = []
+
+        for department in departments:
+            graph_data = app_db.get_employees_by_department(department.data()['name'])
+            average_exp = 0
+            for i in range(len(graph_data)):
+                try:
+                    sql_data = app_db.get_worker_gender_salary_by_department(int(graph_data[i].data()['id']), 'female')
+                    print("sql_data: ", sql_data)
+                    average_exp += sql_data[0][0]
+                except TypeError:
+                    print('error')
+                    continue
+                except IndexError:
+                    continue
+            general_data.append((department.data()['name'], round(average_exp / len(graph_data), 2)))
+            print()
+
+        average_female_salary_by_company = app_db.get_average_salary('female')
+        female_table.insert("", END, values=('company', average_female_salary_by_company[0][0]))
+
+        for item in general_data:
+            female_table.insert("", END, values=item)
 
         button_back = ttk.Button(text="Back", command=lambda: self.create_manager_window(person))
         button_back.place(relx=0.8, rely=0.8)
@@ -657,10 +707,7 @@ class AppWindow(Tk):
     def clear_widgets(self):
         widget_list = self.all_children()
         for item in widget_list:
-            if isinstance(item, ttk.Treeview):
-                item.pack_forget()
-            else:
-                item.place_forget()
+            item.destroy()
 
     def all_children(self):
         _list = self.winfo_children()

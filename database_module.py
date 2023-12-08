@@ -131,11 +131,17 @@ class AppDatabase:
                                          f"WHERE worker_id={worker_id}")
         return self.sql_database.cursor.fetchall()
 
-    def get_worker_gender_salary_by_department(self, worker_id):
+    def get_average_salary(self, gender):
+        self.sql_database.cursor.execute(
+            f"SELECT AVG(salary) FROM workers_salary_info WHERE gender=\'{gender}\';"
+        )
+        return self.sql_database.cursor.fetchall()
+
+    def get_worker_gender_salary_by_department(self, worker_id, gender):
         self.sql_database.cursor.execute(
             "SELECT salary "
             "FROM workers_salary_info "
-            f"WHERE worker_id={worker_id}")
+            f"WHERE worker_id={worker_id} AND gender=\'{gender}\'")
         return self.sql_database.cursor.fetchall()
 
 
