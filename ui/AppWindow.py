@@ -164,6 +164,17 @@ class AppWindow(Tk):
                                              command=lambda: self.create_average_age_window(person.department, person))
         button_view_average_age.place(x=300, y=100)
 
+        button_view_sick_leave_duration = ttk.Button(text="View sick leaves duration",
+                                                     command=lambda: self.create_sick_leave_duration_window(person))
+        button_view_sick_leave_duration.place(x=300, y=125)
+
+        button_view_average_experience = ttk.Button(text="View average experience",
+                                                    command=lambda: self.create_average_experience_window(person))
+        button_view_average_experience.place(x=300, y=150)
+        button_view_average_salary = ttk.Button(text="View average salary",
+                                                command=lambda: self.create_average_salary_window(person))
+        button_view_average_salary.place(x=300, y=175)
+
     def create_admin_window(self, admin):
         self.clear_widgets()
 
@@ -304,6 +315,7 @@ class AppWindow(Tk):
         table.heading("department", text="department")
 
         table.column("#1", stretch=NO, width=100)
+        table.column("#2", stretch=NO, width=100)
 
         graph_data = app_db.get_employees_by_department(department_name)
         ages = []
@@ -323,9 +335,6 @@ class AppWindow(Tk):
         table_value = [average_age, department_name]
         data = app_db.get_average_age()
 
-        table.column("#1", stretch=NO, width=100)
-        table.column("#2", stretch=NO, width=100)
-
         for item in data:
             print(item)
             table.insert("", END, values=round(item[0], 2))
@@ -339,6 +348,110 @@ class AppWindow(Tk):
                                     command=lambda: self.create_average_age_window(department_entry.get(),
                                                                                    person))
         button_refresh.place(x=50, y=225)
+
+        button_back = ttk.Button(text="Back", command=lambda: self.create_manager_window(person))
+        button_back.place(relx=0.8, rely=0.8)
+
+    def create_sick_leave_duration_window(self, person):
+        self.clear_widgets()
+
+        columns = ("department", "average")
+        table = ttk.Treeview(columns=columns, show="headings")
+        table.pack(fill=BOTH, expand=1)
+
+        table.heading("department", text="department")
+        table.heading("average", text="average")
+
+        table.column("#1", stretch=NO, width=100)
+        table.column("#2", stretch=NO, width=100)
+
+        departments = app_db.get_all_departments()
+        durations = []
+        for item in departments:
+            duration = app_db.get_sick_leaves_duration_by_department(item.data()["name"])
+            durations.append((item.data()["name"], duration[0].data()["duration"]))
+
+        for item in durations:
+            table.insert("", END, values=item)
+
+        button_back = ttk.Button(text="Back", command=lambda: self.create_manager_window(person))
+        button_back.place(relx=0.8, rely=0.8)
+
+    def create_average_experience_window(self, person):
+        self.clear_widgets()
+
+        columns = ("department", "average")
+        table = ttk.Treeview(columns=columns, show="headings")
+        table.pack(fill=BOTH, expand=1)
+
+        table.heading("department", text="department")
+        table.heading("average", text="average")
+
+        table.column("#1", stretch=NO, width=100)
+        table.column("#2", stretch=NO, width=100)
+
+        departments = app_db.get_all_departments()
+
+        general_data = []
+
+        for department in departments:
+            graph_data = app_db.get_employees_by_department(department.data()['name'])
+            average_exp = 0
+            for i in range(len(graph_data)):
+                print(graph_data[i].data()['id'])
+                try:
+                    sql_data = app_db.get_worker_experience_by_department(int(graph_data[i].data()['id']))
+                    print("sql_data: ", sql_data)
+                    average_exp += sql_data[0][0]
+                except TypeError:
+                    print('error')
+                    continue
+            general_data.append((department.data()['name'], round(average_exp / len(graph_data), 2)))
+            print()
+
+        print(general_data)
+        # data = app_db.get_worker_experience_by_department()
+        for item in general_data:
+            table.insert("", END, values=item)
+
+        button_back = ttk.Button(text="Back", command=lambda: self.create_manager_window(person))
+        button_back.place(relx=0.8, rely=0.8)
+
+    def create_average_salary_window(self, person):
+        self.clear_widgets()
+
+        columns = ("department", "average")
+        table = ttk.Treeview(columns=columns, show="headings")
+        table.pack(fill=BOTH, expand=1)
+
+        table.heading("department", text="department")
+        table.heading("average", text="average")
+
+        table.column("#1", stretch=NO, width=100)
+        table.column("#2", stretch=NO, width=100)
+
+        departments = app_db.get_all_departments()
+
+        general_data = []
+
+        for department in departments:
+            graph_data = app_db.get_employees_by_department(department.data()['name'])
+            average_exp = 0
+            for i in range(len(graph_data)):
+                try:
+                    sql_data = app_db.get_worker_gender_salary_by_department(int(graph_data[i].data()['id']))
+                    print("sql_data: ", sql_data)
+                    average_exp += sql_data[0][0]
+                except TypeError:
+                    print('error')
+                    continue
+            general_data.append((department.data()['name'], round(average_exp / len(graph_data), 2)))
+            print()
+
+        print(general_data)
+        # data = app_db.get_worker_experience_by_department()
+        for item in general_data:
+            table.insert("", END, values=item)
 
         button_back = ttk.Button(text="Back", command=lambda: self.create_manager_window(person))
         button_back.place(relx=0.8, rely=0.8)

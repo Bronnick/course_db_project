@@ -115,6 +115,29 @@ class AppDatabase:
                                          f"FROM workers_salary_info WHERE worker_id = {_id};")
         return self.sql_database.cursor.fetchall()
 
+    def get_all_departments(self):
+        with self.graph_database.driver.session() as session:
+            graph_data = session.execute_write(GraphDB.get_all_departments)
+            return graph_data
+
+    def get_sick_leaves_duration_by_department(self, department_name):
+        with self.graph_database.driver.session() as session:
+            graph_data = session.execute_write(GraphDB.get_sick_leaves_duration_by_department, department_name)
+            return graph_data
+
+    def get_worker_experience_by_department(self, worker_id):
+        self.sql_database.cursor.execute("SELECT (DATE_PART('year', CURRENT_DATE) - DATE_PART('year', start_date)) as experience "
+                                         "FROM workers_salary_info "
+                                         f"WHERE worker_id={worker_id}")
+        return self.sql_database.cursor.fetchall()
+
+    def get_worker_gender_salary_by_department(self, worker_id):
+        self.sql_database.cursor.execute(
+            "SELECT salary "
+            "FROM workers_salary_info "
+            f"WHERE worker_id={worker_id}")
+        return self.sql_database.cursor.fetchall()
+
 
 class SQLDatabase:
     def __init__(self):
@@ -217,6 +240,17 @@ class GraphDB:
     def get_employees_by_department(tx, department_name):
         result = tx.run('MATCH paths = (e:Employee)-[r:works_in]-(d:Department{name: $department_name}) '
                         "RETURN e.employee_id AS id", department_name=department_name)
+        return result.fetch(100)
+
+    @staticmethod
+    def get_sick_leaves_duration_by_department(tx, department_name):
+        result = tx.run("MATCH (d:Department{name:$department_name})-[r:works_in]-(e:Employee)-[h:has_illness]-(s:SickLeave)"
+                        "RETURN SUM(toInteger(s.duration)) AS duration", department_name=department_name)
+        return result.fetch(100)
+
+    @staticmethod
+    def get_all_departments(tx):
+        result = tx.run('MATCH (d:Department) RETURN d.name AS name')
         return result.fetch(100)
 
     @staticmethod
