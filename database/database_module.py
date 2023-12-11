@@ -47,8 +47,7 @@ class AppDatabase:
 
     def get_all_employees(self):
         data = []
-        self.sql_database.cursor.execute(
-            f'SELECT * FROM workers_salary_info')
+        self.sql_database.cursor.execute(f'SELECT * FROM workers_salary_info')
         sql_data = self.sql_database.cursor.fetchall()
         for item in sql_data:
             with self.graph_database.driver.session() as session:

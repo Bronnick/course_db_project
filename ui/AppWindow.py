@@ -1,11 +1,11 @@
 from datetime import datetime
-from tkinter import Toplevel, ttk, IntVar
-from tkinter.constants import SE, BOTH, END, NO
+from tkinter import ttk, IntVar
+from tkinter.constants import BOTH, END, NO
 from tkinter.tix import Tk
 
 from classes.Absence import SickLeave
-from classes.Person import Person, Employee, Admin, Manager
-from database_module import AppDatabase
+from classes.Person import Employee, Admin, Manager
+from database.database_module import AppDatabase
 
 app_db = AppDatabase()
 
@@ -234,7 +234,8 @@ class AppWindow(Tk):
                 salary /= 2
             elif 730 <= date_diff <= 1460:
                 salary *= 0.8
-            data[current].append(salary)
+            salary *= (int(data[current][1]) / 30)
+            data[current].append(round(salary, 2))
 
             current += 1
 
@@ -459,7 +460,7 @@ class AppWindow(Tk):
 
         print(general_data)
         # data = app_db.get_worker_experience_by_department()
-        average_male_salary_by_company = app_db.get_average_salary('female')
+        average_male_salary_by_company = app_db.get_average_salary('male')
         male_table.insert("", END, values=('company', average_male_salary_by_company[0][0]))
 
         for item in general_data:
