@@ -3,8 +3,10 @@ from tkinter import ttk, IntVar
 from tkinter.constants import BOTH, END, NO
 from tkinter.tix import Tk
 
-from classes.Absence import SickLeave
-from classes.Person import Employee, Admin, Manager
+from classes.SickLeave import SickLeave
+from classes.Admin import Admin
+from classes.Manager import Manager
+from classes.Employee import Employee
 from database.database_module import AppDatabase
 
 app_db = AppDatabase()
@@ -37,7 +39,7 @@ AVERAGE_SALARY_FEMALE_LABEL = "average_salary_women"
 class AppWindow(Tk):
     def __init__(self):
         super().__init__()
-        self.title("Authentication")
+        self.title("Employee salary database")
         self.geometry("500x500")
 
         self.widgets = {}
@@ -177,14 +179,12 @@ class AppWindow(Tk):
         button_view_average_salary = ttk.Button(text="View average salary",
                                                 command=lambda: self.create_average_salary_window(person))
         button_view_average_salary.place(x=300, y=175)
+        button_view_increase_salary = ttk.Button(text="Increase salary",
+                                                 command=lambda: self.create_salary_increase_window(person))
+        button_view_increase_salary.place(x=300, y=225)
 
     def create_admin_window(self, admin):
         self.clear_widgets()
-
-        access_level_label = ttk.Label(self, text="Access level: ")
-        access_level_label.place(x=25, y=25)
-        access_level = ttk.Label(self, text=admin.access_level)
-        access_level.place(x=100, y=25)
 
         add_employee_button = ttk.Button(self, text="Add employee",
                                          command=lambda: self.create_employee_add_window(admin))
@@ -611,6 +611,33 @@ class AppWindow(Tk):
 
         back_button = ttk.Button(self, text="Back", command=lambda: self.create_admin_window(admin))
         back_button.place(relx=0.8, rely=0.8)
+
+    def create_salary_increase_window(self, person):
+        self.clear_widgets()
+
+        login_label = ttk.Label(self, text="Login: ")
+        login_label.place(x=25, y=100)
+        login_entry = ttk.Entry(self)
+        login_entry.place(x=100, y=100)
+
+        amount_label = ttk.Label(self, text="Amount: ")
+        amount_label.place(x=25, y=125)
+        amount_entry = ttk.Entry(self)
+        amount_entry.place(x=100, y=125)
+
+        button_increase_salary = ttk.Button(self, text="Increase salary",
+                                            command=lambda: self.increase_salary_button_click(login_entry.get(),
+                                                                                              amount_entry.get(),
+                                                                                              person))
+        button_increase_salary.place(x=75, y=150)
+
+        button_back = ttk.Button(text="Back", command=lambda: self.create_manager_window(person))
+        button_back.place(relx=0.8, rely=0.8)
+
+    def increase_salary_button_click(self, login, salary, person):
+        app_db.increase_salary(login, salary)
+
+        self.create_manager_window(person)
 
     # def create_view_employee_window(self):
     #     self.clear_widgets()
